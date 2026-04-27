@@ -20,6 +20,7 @@ export default function FormFillScreen() {
   const [checkboxAnswers, setCheckboxAnswers] = useState<Record<number, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<"loading" | "granted" | "denied">("loading");
 
   useEffect(() => {
     api.getPublicForm(Number(id)).then(setForm).catch(() => {
@@ -31,15 +32,15 @@ export default function FormFillScreen() {
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
+      if (status !== "granted") {
+        setLocationStatus("denied");
+        return;
       }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      setLocationStatus("granted");
     })();
   }, []);
 
@@ -59,6 +60,10 @@ export default function FormFillScreen() {
 
   async function handleSubmit() {
     if (!form) return;
+    if (!location) {
+      Alert.alert("Localização necessária", "Aguarde a localização ser obtida ou verifique as permissões do dispositivo.");
+      return;
+    }
 
     // Validate required fields
     for (const q of form.questions) {
@@ -110,7 +115,17 @@ export default function FormFillScreen() {
       <Text style={styles.title}>{form.title}</Text>
       {form.description && <Text style={styles.description}>{form.description}</Text>}
 
-      {location && (
+      {locationStatus === "loading" && (
+        <View style={[styles.locationBadge, styles.locationLoading]}>
+          <Text style={styles.locationText}>Obtendo localização...</Text>
+        </View>
+      )}
+      {locationStatus === "denied" && (
+        <View style={[styles.locationBadge, styles.locationDenied]}>
+          <Text style={styles.locationDeniedText}>Localização negada — necessária para enviar.</Text>
+        </View>
+      )}
+      {locationStatus === "granted" && location && (
         <View style={styles.locationBadge}>
           <Text style={styles.locationText}>
             GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
@@ -180,12 +195,12 @@ export default function FormFillScreen() {
       ))}
 
       <TouchableOpacity
-        style={[styles.submitButton, submitting && styles.buttonDisabled]}
+        style={[styles.submitButton, (!location || submitting) && styles.buttonDisabled]}
         onPress={handleSubmit}
-        disabled={submitting}
+        disabled={!location || submitting}
       >
         <Text style={styles.submitText}>
-          {submitting ? "Enviando..." : "Enviar"}
+          {submitting ? "Enviando..." : !location ? "Aguardando localização..." : "Enviar"}
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -204,7 +219,10 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 16,
   },
+  locationLoading: { backgroundColor: "#f3f4f6" },
+  locationDenied: { backgroundColor: "#fee2e2" },
   locationText: { fontSize: 13, color: "#0369a1" },
+  locationDeniedText: { fontSize: 13, color: "#dc2626" },
   question: {
     backgroundColor: "#fff",
     borderRadius: 10,

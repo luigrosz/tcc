@@ -16,6 +16,12 @@ submissionRoutes.post("/:id/submit", async (req, res) => {
 
   const latitude = req.body.latitude ?? null;
   const longitude = req.body.longitude ?? null;
+
+  if (latitude === null || longitude === null) {
+    res.status(400).json({ error: "Localização é obrigatória para enviar o formulário" });
+    return;
+  }
+
   const [submission] = await sql`
     INSERT INTO submissions (form_id, latitude, longitude)
     VALUES (${req.params.id}, ${latitude}, ${longitude})
