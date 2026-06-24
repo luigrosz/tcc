@@ -23,7 +23,7 @@ bun --version
 
 ---
 
-## Opção 1: Rodando com Docker (recomendado)
+## Rodando com Docker
 
 Essa opção sobe o banco de dados, backend e frontend automaticamente.
 
